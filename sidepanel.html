@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Followback</title>
+<link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+
+<!-- Icon sprite. Shapes only; stroke/fill come from .ic in the stylesheet. -->
+<svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M16 3.5l4 4-4 4M20 7.5H4M8 20.5l-4-4 4-4M4 16.5h16"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-3.9-3.9"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="3"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66L20 8.5"/><path d="M20 4v4.5h-4.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.6h.01"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.2M12 7.7h.01"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 4 5.6 4 9s-1.4 6.4-4 9c-2.6-2.6-4-5.6-4-9s1.4-6.4 4-9z"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c.5-3.2 2.7-5 5.5-5s5 1.8 5.5 5"/><circle cx="17" cy="9.5" r="2.4"/><path d="M16 14.2c2.6-.3 4.5 1.2 5 4.3"/></symbol>
+  <symbol id="i-verified" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4.5"/><rect x="4" y="4" width="16" height="16" rx="4.5" transform="rotate(45 12 12)"/><path d="M8.3 12.4l2.5 2.5 4.9-5.1" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<div class="app">
+
+  <header class="top">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"><svg class="ic"><use href="#i-swap"/></svg></span>
+      <h1>Followback</h1>
+    </div>
+    <div class="chip" id="chip" hidden>
+      <span class="av sm" id="chipAv" aria-hidden="true"></span>
+      <span class="chip-name" id="chipName"></span>
+    </div>
+  </header>
+
+  <main class="scroll" id="scroll">
+    <div class="wrap" id="wrap">
+
+      <!-- Screen-reader announcements; fed from status.message (see sidepanel.js). -->
+      <div class="sr-only" id="live" role="status" aria-live="polite"></div>
+
+      <!-- Not reachable: sendMessage rejected -->
+      <section class="card ctx" id="cardUnreach" hidden aria-labelledby="unreachTitle">
+        <span class="ctx-ico" aria-hidden="true"><svg class="ic"><use href="#i-globe"/></svg></span>
+        <h2 id="unreachTitle">Connect to Instagram</h2>
+        <p class="sub">Followback reads your lists from an open instagram.com tab. Open it, sign in, then come back here.</p>
+        <button class="btn btn-ink btn-block" id="btnOpen" type="button">Open Instagram</button>
+        <button class="btn btn-link" id="btnReload" type="button">Already open? Reload the tab</button>
+      </section>
+
+      <!-- Ready: no scan yet -->
+      <section class="card ctx" id="cardReady" hidden aria-label="Start a scan">
+        <button class="btn btn-cta btn-block" id="btnScan" type="button">
+          <svg class="ic"><use href="#i-search"/></svg>
+          <span id="btnScanText">Scan followers &amp; following</span>
+        </button>
+        <p class="hint"><span class="dot" id="hintDot" aria-hidden="true"></span><span id="hint">Open your profile first</span></p>
+      </section>
+
+      <!-- Scanning -->
+      <section class="card" id="cardScan" hidden aria-labelledby="scanTitle">
+        <div class="row-h">
+          <h2 class="card-t" id="scanTitle"><span class="spin" aria-hidden="true"></span>Scanning your profile</h2>
+          <button class="btn btn-stop btn-sm" id="btnStopScan" type="button"><svg class="ic ic-fill"><use href="#i-stop"/></svg>Stop</button>
+        </div>
+        <div class="prog" id="progFollowers">
+          <div class="prog-h"><span class="prog-l">Followers</span><span class="prog-n" id="pfN"></span></div>
+          <div class="bar" id="pfBar" role="progressbar" aria-label="Followers scanned" aria-valuemin="0" aria-valuemax="100"><i></i></div>
+        </div>
+        <div class="prog" id="progFollowing">
+          <div class="prog-h"><span class="prog-l">Following</span><span class="prog-n" id="pgN"></span></div>
+          <div class="bar" id="pgBar" role="progressbar" aria-label="Following scanned" aria-valuemin="0" aria-valuemax="100"><i></i></div>
+        </div>
+        <p class="msg"><span id="scanMsg"></span><span class="cd" id="scanCd" hidden></span></p>
+      </section>
+
+      <!-- Error -->
+      <section class="banner" id="cardErr" hidden aria-labelledby="errTitle">
+        <svg class="ic"><use href="#i-alert"/></svg>
+        <div class="banner-b">
+          <h2 class="banner-t" id="errTitle">Something went wrong</h2>
+          <p id="errMsg"></p>
+          <button class="btn btn-quiet btn-sm" id="btnRetry" type="button"><svg class="ic"><use href="#i-refresh"/></svg>Try again</button>
+        </div>
+      </section>
+
+      <!-- Last stopped/interrupted scan -->
+      <p class="note" id="result" hidden><svg class="ic"><use href="#i-info"/></svg><span id="resultText"></span></p>
+
+      <!-- Stats: exists once a scan has been saved -->
+      <section class="card stats" id="stats" hidden aria-label="Summary">
+        <div class="tiles">
+          <button class="tile" type="button" data-tab="followers" aria-pressed="false"><span class="tile-n" id="tFollowers">0</span><span class="tile-l">Followers</span></button>
+          <button class="tile" type="button" data-tab="following" aria-pressed="false"><span class="tile-n" id="tFollowing">0</span><span class="tile-l">Following</span></button>
+          <button class="tile accent" type="button" data-tab="nfb" aria-pressed="true"><span class="tile-n" id="tNfb">0</span><span class="tile-l">Not following back</span></button>
+        </div>
+        <div class="meta">
+          <span class="meta-t"><span id="ago"></span><span id="agoUnf" hidden></span></span>
+          <button class="btn btn-quiet btn-sm" id="btnRescan" type="button"><svg class="ic"><use href="#i-refresh"/></svg>Rescan</button>
+        </div>
+        <p class="warn" id="warn" hidden><svg class="ic"><use href="#i-alert"/></svg><span id="warnText"></span></p>
+      </section>
+
+      <div class="toolbar" id="toolbar" hidden>
+        <div class="tabs" role="tablist" aria-label="Accounts">
+          <button class="tab" role="tab" id="tab-nfb" type="button" data-tab="nfb" aria-selected="true" aria-controls="panel" tabindex="0"><span class="tab-l">Not following back</span><span class="tab-n" id="cNfb">0</span></button>
+          <button class="tab" role="tab" id="tab-followers" type="button" data-tab="followers" aria-selected="false" aria-controls="panel" tabindex="-1"><span class="tab-l">Followers</span><span class="tab-n" id="cFollowers">0</span></button>
+          <button class="tab" role="tab" id="tab-following" type="button" data-tab="following" aria-selected="false" aria-controls="panel" tabindex="-1"><span class="tab-l">Following</span><span class="tab-n" id="cFollowing">0</span></button>
+        </div>
+        <div class="search">
+          <label class="sr-only" for="q">Search by username or name</label>
+          <svg class="ic search-ic" aria-hidden="true"><use href="#i-search"/></svg>
+          <input id="q" type="search" placeholder="Search username or name" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <button class="icon-btn" id="qClear" type="button" aria-label="Clear search" hidden><svg class="ic"><use href="#i-x"/></svg></button>
+        </div>
+      </div>
+
+      <div class="panel" id="panel" role="tabpanel" aria-labelledby="tab-nfb">
+        <div class="listcard" id="listCard" hidden>
+          <div class="listhead" id="listHead" hidden>
+            <label class="all"><input class="chk" id="selAll" type="checkbox"><span>Select all</span></label>
+            <span class="sel" id="selText"></span>
+          </div>
+          <ul class="list" id="list"></ul>
+        </div>
+        <div class="empty" id="empty" hidden>
+          <span class="empty-ico" aria-hidden="true"><svg class="ic"><use href="#i-people"/></svg></span>
+          <p id="emptyText"></p>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Sticky footer: unfollow controls on the Not following back tab; progress + Stop while a run is active -->
+  <footer class="dock" id="dock" hidden>
+    <p class="dnote" id="dockNote" hidden><svg class="ic"><use href="#i-info"/></svg><span id="dockNoteText"></span></p>
+
+    <div id="dockIdle" hidden>
+      <button class="btn btn-danger btn-block" id="btnUnfollow" type="button">Unfollow 0 selected</button>
+    </div>
+
+    <div id="dockConfirm" hidden>
+      <p class="confirm" id="confirmText"></p>
+      <div class="btns">
+        <button class="btn btn-quiet" id="btnCancel" type="button">Cancel</button>
+        <button class="btn btn-danger" id="btnYes" type="button">Yes, unfollow</button>
+      </div>
+    </div>
+
+    <div id="dockRun" hidden>
+      <div class="row-h">
+        <strong class="run-t" id="runTitle">Unfollowed 0</strong>
+        <button class="btn btn-stop btn-sm" id="btnStopRun" type="button"><svg class="ic ic-fill"><use href="#i-stop"/></svg>Stop</button>
+      </div>
+      <div class="bar" id="runBar" role="progressbar" aria-label="Unfollow progress" aria-valuemin="0" aria-valuemax="100"><i></i></div>
+      <p class="msg"><span id="runMsg"></span><span class="cd" id="runCd" hidden></span></p>
+    </div>
+  </footer>
+
+</div>
+
+<script src="sidepanel.js" defer></script>
+</body>
+</html>
